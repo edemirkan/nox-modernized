@@ -1,0 +1,4 @@
+#include <winuser.h>
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "launcher.manifest"
+1 ICON "nox-modernized.ico"
+2 BITMAP "banner_strip.bmp"

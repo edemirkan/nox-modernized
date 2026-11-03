@@ -1,0 +1,11 @@
+LIBRARY ddraw.dll
+EXPORTS
+DirectDrawCreate=dsp_DirectDrawCreate@12
+DirectDrawEnumerateA=dsp_DirectDrawEnumerateA@8
+DirectDrawCreateEx=dsp_DirectDrawCreateEx@16
+DirectDrawEnumerateExA=dsp_DirectDrawEnumerateExA@12
+DirectDrawCreateClipper=dsp_DirectDrawCreateClipper@12
+OncSetFrameHook
+OncDisplayGet
+OncDisplaySet
+OncPresentWorld
