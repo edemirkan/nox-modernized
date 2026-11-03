@@ -1,0 +1,6 @@
+src/out/
+*.log
+Screenshots/
+Game.exe
+ddraw_gog.dll
+dxcfg.ini
