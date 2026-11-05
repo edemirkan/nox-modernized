@@ -28,11 +28,20 @@ jobs:
       - name: Package build
         run: |
           mkdir -p dist
-          zip -j "dist/NoxModernized-${GITHUB_REF_NAME}.zip" \
-            src/out/mss32.dll \
-            src/out/mss32-syms.dll \
-            src/out/ddraw.dll \
+          files=(
+            src/out/mss32.dll
+            src/out/ddraw.dll
             src/out/NoxModernized-Settings.exe
+            release/config/*.ini
+            release/launcher/*.bat
+            LICENSE
+            HOW-IT-WORKS.md
+            README.md
+          )
+          if [[ "$GITHUB_EVENT_NAME" != "release" ]]; then
+            files+=(src/out/mss32-syms.dll)
+          fi
+          zip -j "dist/NoxModernized-${GITHUB_REF_NAME}.zip" "${files[@]}"
 
       - uses: actions/upload-artifact@v4
         with:
