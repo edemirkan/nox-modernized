@@ -220,6 +220,7 @@ static void release_all(void) {
     }
     if (g_lclick) { mouse_ev(DIMOFS_BUTTON0, 0); g_lclick = 0; }
     att_wait = 0;
+    att_cap = att_seen = 0;
     g_attack_btn = g_aim_btn = 0;
     g_inv_down = 0; g_inv_combo = -1;
 }
@@ -505,7 +506,7 @@ static void poll(void) {
     g_hide_cursor = ingame && !g_manual && c_hide_cursor;
     if ((int)(now - g_cast_cap) < 0 && onc_player_casting() && (int)(g_aim_until - (now + 100)) < 0)
         g_aim_until = now + 100; /* casting: keep aiming until the spell goes off */
-    if ((int)(now - att_cap) < 0) {
+    if (att_cap && (int)(now - att_cap) < 0) {
         /* attacking at the enemy: keep aiming until that attack is over (the arrow leaves late in it). Only the
            attack the pad started: once it is over (or if it has not begun within 400 ms) the hold ends, so a later
            attack state the game enters by itself does not keep the cursor on the enemy */
@@ -592,15 +593,20 @@ static void poll(void) {
             }
         }
     }
-    /* attack: the left mouse button while its combo is held, at the locked-on enemy */
+    /* Attack with short clicks; wait for each animation to finish before repeating. */
     /* With an enemy locked on, the cursor goes onto it first and the button follows once the player faces it
        (onc_facing_target; at most 150 ms): shots and swings leave along the facing, which turns to the cursor
        only at the end of a game frame, so pressing at once sent the first arrow where the left stick pointed.
        A short tap meanwhile still clicks (held at least 80 ms). */
     int a = g_attack_btn != 0;
-    if (a && !g_lclick && !att_wait && aim) {
-        cursor_to(ax, ay); g_aim_a = 1;
-        att_wait = 1; att_until = now + 150;
+    if (a && !g_lclick && !att_wait && (!att_cap || (int)(now - att_cap) >= 0)) {
+        if (aim) {
+            cursor_to(ax, ay); g_aim_a = 1;
+            att_wait = 1; att_until = now + 150;
+        } else {
+            mouse_ev(DIMOFS_BUTTON0, 0x80); g_lclick = 1; att_hold = now + 80;
+            att_cap = now + 2000; att_start = now; att_seen = 0;
+        }
     }
     if (att_wait && (!aim || onc_facing_target() || (int)(now - att_until) >= 0)) {
         att_wait = 0;
@@ -609,7 +615,7 @@ static void poll(void) {
     }
     if (!a && g_aim_a && !att_wait && !g_lclick) { g_aim_a = 0; g_aim_until = now + 150; }
     if (!att_wait) {
-        int want = a || (g_lclick && (int)(now - att_hold) < 0);
+        int want = g_lclick && (int)(now - att_hold) < 0;
         if (want != g_lclick) { mouse_ev(DIMOFS_BUTTON0, want ? 0x80 : 0); g_lclick = want; }
         if (!g_lclick && !a && g_aim_a) { g_aim_a = 0; g_aim_until = now + 150; }
     }
