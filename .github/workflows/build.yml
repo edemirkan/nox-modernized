@@ -1,0 +1,58 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MinGW-w64
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mingw-w64
+
+      - name: Build project
+        run: |
+          sh src/build.sh
+          sh src/display/build.sh
+          sh src/launcher/build.sh
+
+      - name: Package build
+        run: |
+          mkdir -p dist
+          zip -j "dist/NoxModernized-${GITHUB_REF_NAME}.zip" \
+            src/out/mss32.dll \
+            src/out/mss32-syms.dll \
+            src/out/ddraw.dll \
+            src/out/NoxModernized-Settings.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NoxModernized-${{ github.ref_name }}
+          path: dist/*.zip
+          if-no-files-found: error
+
+  publish-release:
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: NoxModernized-${{ github.ref_name }}
+          path: dist
+
+      - name: Upload build to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" dist/*.zip --clobber
