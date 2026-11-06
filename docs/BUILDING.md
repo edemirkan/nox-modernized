@@ -8,6 +8,17 @@ that come with Windows (Direct3D 11, DirectInput, XInput, comctl32).
 - Linux (Debian / Ubuntu): `sudo apt install mingw-w64` (the `i686-w64-mingw32-*` tools are used).
 - Windows: MSYS2 with the `mingw-w64-i686-gcc` package, run from a shell that has `sh`.
 
+## Docker build (Linux)
+
+With Docker installed and running, build all three Windows binaries from the repository root:
+
+```sh
+./src/docker-build.sh
+```
+
+The script builds the local `nox-modernized-builder:local` image and writes outputs to `src/out`. Set
+`DOCKER_IMAGE` to use a different local image tag.
+
 ## Build
 
 From the repository's root:

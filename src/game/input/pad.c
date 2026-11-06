@@ -40,6 +40,7 @@ static void xinput_load(void);      /* key sent for each button on press (so its
 static int c_dead = 25, c_walk = 60;         /* percent of stick travel */
 static int c_walk_r = 60, c_run_r = 30;      /* walk ring in pixels at 768 lines, run ring in percent of screen height */
 static int c_speed = 14;                     /* right stick cursor speed, pixels per poll at 768 lines */
+static int c_attack_repeat = 450;             /* held attack interval, ms */
 static int c_hide_cursor = 1;                /* hide the cursor while the left stick plays */
 static int c_cur_start = 50;                 /* right stick cursor mode starts past this (% of its travel) */
 static int c_zoom_hold = 250;                /* R3 + right stick zoom: R3 held this long (ms) first */
@@ -118,6 +119,8 @@ static int g_pend_b, g_pend_released;
 static DWORD g_pend_at;
 static int att_wait;          /* an attack press waits for the player to face the enemy */
 static DWORD att_until, att_hold, att_cap, att_start;
+static DWORD att_repeat_at;
+static int att_repeat_wait;
 static int att_seen;          /* the attack the pad started has begun */
 static int g_held[16];        /* the action each button started when pressed (it ends with the same one) */
 static int g_attack_btn, g_aim_btn; /* buttons held doing attack / aim (bits by B_*) */
@@ -220,6 +223,8 @@ static void release_all(void) {
     }
     if (g_lclick) { mouse_ev(DIMOFS_BUTTON0, 0); g_lclick = 0; }
     att_wait = 0;
+    att_cap = att_seen = 0;
+    att_repeat_wait = 0;
     g_attack_btn = g_aim_btn = 0;
     g_inv_down = 0; g_inv_combo = -1;
 }
@@ -505,7 +510,7 @@ static void poll(void) {
     g_hide_cursor = ingame && !g_manual && c_hide_cursor;
     if ((int)(now - g_cast_cap) < 0 && onc_player_casting() && (int)(g_aim_until - (now + 100)) < 0)
         g_aim_until = now + 100; /* casting: keep aiming until the spell goes off */
-    if ((int)(now - att_cap) < 0) {
+    if (att_cap && (int)(now - att_cap) < 0) {
         /* attacking at the enemy: keep aiming until that attack is over (the arrow leaves late in it). Only the
            attack the pad started: once it is over (or if it has not begun within 400 ms) the hold ends, so a later
            attack state the game enters by itself does not keep the cursor on the enemy */
@@ -592,24 +597,32 @@ static void poll(void) {
             }
         }
     }
-    /* attack: the left mouse button while its combo is held, at the locked-on enemy */
+    /* Attack with short clicks, repeated at a steady interval while held. */
     /* With an enemy locked on, the cursor goes onto it first and the button follows once the player faces it
        (onc_facing_target; at most 150 ms): shots and swings leave along the facing, which turns to the cursor
        only at the end of a game frame, so pressing at once sent the first arrow where the left stick pointed.
        A short tap meanwhile still clicks (held at least 80 ms). */
     int a = g_attack_btn != 0;
-    if (a && !g_lclick && !att_wait && aim) {
-        cursor_to(ax, ay); g_aim_a = 1;
-        att_wait = 1; att_until = now + 150;
+    if (!a) att_repeat_wait = 0;
+    if (a && !g_lclick && !att_wait && (!att_repeat_wait || (int)(now - att_repeat_at) >= 0)) {
+        if (aim) {
+            cursor_to(ax, ay); g_aim_a = 1;
+            att_wait = 1; att_until = now + 150;
+        } else {
+            mouse_ev(DIMOFS_BUTTON0, 0x80); g_lclick = 1; att_hold = now + 80;
+            att_cap = now + 2000; att_start = now; att_seen = 0;
+            att_repeat_at = now + c_attack_repeat; att_repeat_wait = 1;
+        }
     }
     if (att_wait && (!aim || onc_facing_target() || (int)(now - att_until) >= 0)) {
         att_wait = 0;
         mouse_ev(DIMOFS_BUTTON0, 0x80); g_lclick = 1; att_hold = now + 80;
         att_cap = now + 2000; att_start = now; att_seen = 0;
+        att_repeat_at = now + c_attack_repeat; att_repeat_wait = 1;
     }
     if (!a && g_aim_a && !att_wait && !g_lclick) { g_aim_a = 0; g_aim_until = now + 150; }
     if (!att_wait) {
-        int want = a || (g_lclick && (int)(now - att_hold) < 0);
+        int want = g_lclick && (int)(now - att_hold) < 0;
         if (want != g_lclick) { mouse_ev(DIMOFS_BUTTON0, want ? 0x80 : 0); g_lclick = want; }
         if (!g_lclick && !a && g_aim_a) { g_aim_a = 0; g_aim_until = now + 150; }
     }
@@ -761,6 +774,8 @@ void onc_pad_init(void) {
     c_walk_r = onc_cfg_int("pad", "walk_ring_pixels", c_walk_r);
     c_run_r = onc_cfg_int("pad", "run_ring_percent", c_run_r);
     c_speed = onc_cfg_int("pad", "cursor_speed", c_speed);
+    c_attack_repeat = onc_cfg_int("pad", "attack_repeat_ms", c_attack_repeat);
+    if (c_attack_repeat < 100) c_attack_repeat = 100; else if (c_attack_repeat > 2000) c_attack_repeat = 2000;
     c_hide_cursor = onc_cfg_int("pad", "hide_cursor", 1);
     c_r3_click = onc_cfg_int("pad", "r3_click", 1);
     c_zoom_hold = onc_cfg_int("pad", "zoom_hold_ms", c_zoom_hold);

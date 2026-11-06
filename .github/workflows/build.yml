@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main, feature/*]
+    branches: [main, dev/*]
   release:
     types: [published]
 
@@ -28,15 +28,25 @@ jobs:
       - name: Package build
         run: |
           mkdir -p dist
-          zip -j "dist/NoxModernized-${GITHUB_REF_NAME}.zip" \
-            src/out/mss32.dll \
-            src/out/mss32-syms.dll \
-            src/out/ddraw.dll \
+          files=(
+            src/out/mss32.dll
+            src/out/ddraw.dll
             src/out/NoxModernized-Settings.exe
+            release/config/*.ini
+            release/launcher/*.bat
+            LICENSE
+            HOW-IT-WORKS.md
+            README.md
+          )
+          if [[ "$GITHUB_EVENT_NAME" != "release" ]]; then
+            files+=(src/out/mss32-syms.dll)
+          fi
+          archive_name=${GITHUB_REF_NAME//\//-}
+          zip -j "dist/NoxModernized-${archive_name}.zip" "${files[@]}"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: NoxModernized-${{ github.ref_name }}
+          name: NoxModernized-build
           path: dist/*.zip
           if-no-files-found: error
 
@@ -51,7 +61,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: NoxModernized-${{ github.ref_name }}
+          name: NoxModernized-build
           path: dist
 
       - name: Upload build to release
